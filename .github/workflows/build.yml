@@ -1,0 +1,23 @@
+name: Simple APK Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: [self-hosted, Windows]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install dependencies and build
+      run: |
+        pip install buildozer
+        buildozer android debug
+        
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: my-app
+        path: bin/*.apk
