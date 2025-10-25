@@ -1,42 +1,73 @@
-name: Build APK with Cython
+name: Build APK with Android SDK
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # 此配置允许在GitHub仓库中手动触发工作流
 
 jobs:
   build:
     runs-on: ubuntu-22.04
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+
     - name: Install system dependencies
       run: |
-        sudo apt update
-        sudo apt install -y \
+        sudo apt-get update
+        sudo apt-get install -y \
           python3-pip \
           python3-dev \
           build-essential \
           git \
+          zip \
+          unzip \
           openjdk-11-jdk \
-          zlib1g-dev \
-          libncurses5-dev \
-          libffi-dev \
-          libssl-dev
-        
-    - name: Install Python dependencies
+          wget \
+          curl
+
+    - name: Install Buildozer and Cython
       run: |
-        python3 -m pip install --upgrade pip
-        pip3 install cython buildozer
-        
-    - name: Build APK
+        python -m pip install --upgrade pip
+        pip install cython buildozer
+
+    - name: Install Android SDK Build-Tools (关键步骤)
       run: |
-        echo "开始构建APK..."
+        # 创建Android SDK目录结构
+        mkdir -p ~/.buildozer/android/platform/android-sdk/build-tools
+        
+        # 下载并安装Android命令行工具
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip
+        unzip -q commandlinetools-latest.zip -d cmdline-tools
+        mkdir -p ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest
+        mv cmdline-tools/cmdline-tools/* ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/
+        
+        # 设置环境变量
+        echo "ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
+        echo "PATH=$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
+        
+        # 接受许可证并安装构建工具
+        yes | ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+        ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" "platforms;android-34" "platform-tools"
+
+    - name: Verify AIDL is available
+      run: |
+        # 检查aidl是否可用
+        find ~/.buildozer -name "aidl" -type f | head -5
+        echo "Android SDK内容:"
+        ls -la ~/.buildozer/android/platform/android-sdk/build-tools/
+
+    - name: Build APK with Buildozer
+      run: |
         buildozer -v android debug
-        
+
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: apk-file
+        name: your-app-apk
         path: bin/*.apk
+        retention-days: 7
