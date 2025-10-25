@@ -1,13 +1,11 @@
-name: Build APK with GitHub Runner
+name: Build APK - Fixed
 
 on:
-  workflow_dispatch:  
-  push:
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04 
+    runs-on: ubuntu-22.04
     
     steps:
     - name: Checkout code
@@ -36,9 +34,15 @@ jobs:
         python -m pip install --upgrade pip
         pip install buildozer cython virtualenv
         
+    - name: Verify buildozer.spec
+      run: |
+        echo "检查 buildozer.spec 文件..."
+        ls -la buildozer.spec || echo "buildozer.spec 不存在"
+        echo "文件内容:"
+        cat buildozer.spec || echo "无法读取文件"
+        
     - name: Build APK with Buildozer
       run: |
-        buildozer init
         buildozer -v android debug
         
     - name: Upload APK
