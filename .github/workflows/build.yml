@@ -1,4 +1,4 @@
-name: Guaranteed APK Build
+name: Ultimate APK Build
 
 on:
   workflow_dispatch:
@@ -11,134 +11,22 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.8'
-        
-    - name: Install system dependencies
+    - name: Build using Kivy official Docker image
       run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          python3-pip \
-          python3-dev \
-          build-essential \
-          git \
-          zip \
-          unzip \
-          openjdk-11-jdk \
-          wget \
-          curl \
-          autoconf \
-          libtool \
-          pkg-config \
-          zlib1g-dev \
-          libncurses5-dev \
-          cmake \
-          libffi-dev \
-          libssl-dev \
-          swig \
-          unzip
-        
-    - name: Install Python build tools
-      run: |
-        python -m pip install --upgrade pip
-        pip install cython==0.29.33
-        pip install buildozer
-        
-    - name: Download and setup Android SDK
-      run: |
-        echo "设置Android SDK环境..."
-        
-        # 创建必要的目录
-        mkdir -p ~/.buildozer/android/platform/android-sdk
-        mkdir -p ~/android-sdk
-        
-        # 下载Android命令行工具（使用确切的文件名）
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-        
-        # 检查文件是否下载成功
-        if [ ! -f "cmdline-tools.zip" ]; then
-          echo "❌ 下载失败，尝试备用URL..."
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip -O cmdline-tools.zip
-        fi
-        
-        # 解压文件
-        unzip -q cmdline-tools.zip -d cmdline-tools-temp
-        mkdir -p ~/android-sdk/cmdline-tools/latest
-        mv cmdline-tools-temp/cmdline-tools/* ~/android-sdk/cmdline-tools/latest/
-        
-        # 设置环境变量
-        echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-        echo "PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
-        
-        echo "✅ Android SDK设置完成"
-        
-    - name: Accept Android licenses and install components
-      run: |
-        # 预接受许可证
-        mkdir -p $HOME/android-sdk/licenses
-        echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55" > $HOME/android-sdk/licenses/android-sdk-license
-        echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > $HOME/android-sdk/licenses/android-sdk-preview-license
-        
-        # 安装必要的Android组件
-        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk "platform-tools" "platforms;android-30" "build-tools;30.0.3"
-        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk "ndk;21.4.7075529"
-        
-        echo "✅ Android组件安装完成"
-        
-    - name: Verify Android tools
-      run: |
-        echo "验证Android工具..."
-        ls -la $HOME/android-sdk/build-tools/30.0.3/ | grep aidl || echo "❌ AIDL未找到"
-        ls -la $HOME/android-sdk/build-tools/30.0.3/ | head -10
-        
-    - name: Configure Buildozer to use our Android SDK
-      run: |
-        # 创建buildozer目录结构
-        mkdir -p ~/.buildozer/android/platform/android-sdk
-        # 将我们的SDK链接到buildozer期望的位置
-        ln -sf $HOME/android-sdk ~/.buildozer/android/platform/android-sdk/
-        
-        echo "✅ Buildozer配置完成"
-        
-    - name: Build APK with detailed logging
-      run: |
-        echo "开始构建APK..."
-        
-        # 先检查配置
-        buildozer android checkconfig || echo "配置检查有警告但继续..."
-        
-        # 构建APK
-        buildozer -v android debug
-        
-        echo "✅ APK构建完成"
-        
-    - name: Verify APK file
-      run: |
-        echo "验证生成的APK文件..."
-        if [ -f "bin/*.apk" ]; then
-          echo "✅ APK文件生成成功"
-          ls -la bin/
-        else
-          echo "❌ 未找到APK文件"
-          # 列出所有可能的文件
-          find . -name "*.apk" -type f
-          exit 1
-        fi
-        
+        # 使用Kivy官方Docker镜像，包含所有预配置的环境
+        docker run --rm \
+          -v $(pwd):/src \
+          -w /src \
+          kivy/kivy:latest \
+          bash -c "
+            apt update && \
+            apt install -y openjdk-11-jdk wget unzip && \
+            pip install buildozer && \
+            buildozer android debug
+          "
+          
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: guaranteed-apk
+        name: ultimate-apk
         path: bin/*.apk
-        retention-days: 30
-        
-    - name: Upload build logs (if failed)
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-logs
-        path: |
-          .buildozer/**/*.log
-        retention-days: 7
