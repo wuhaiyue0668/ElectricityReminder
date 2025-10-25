@@ -1,4 +1,4 @@
-name: Direct APK Build
+name: Build APK with Cython
 
 on:
   workflow_dispatch:
@@ -11,15 +11,28 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Install dependencies
+    - name: Install system dependencies
       run: |
         sudo apt update
-        sudo apt install -y python3-pip openjdk-11-jdk zlib1g-dev
-        pip3 install buildozer
+        sudo apt install -y \
+          python3-pip \
+          python3-dev \
+          build-essential \
+          git \
+          openjdk-11-jdk \
+          zlib1g-dev \
+          libncurses5-dev \
+          libffi-dev \
+          libssl-dev
         
-    - name: Build APK directly (skip clean)
+    - name: Install Python dependencies
       run: |
-        echo "直接构建APK，跳过清理步骤..."
+        python3 -m pip install --upgrade pip
+        pip3 install cython buildozer
+        
+    - name: Build APK
+      run: |
+        echo "开始构建APK..."
         buildozer -v android debug
         
     - name: Upload APK
